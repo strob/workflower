@@ -1,0 +1,74 @@
+<html>
+  <head>
+<title>work flower</title>
+<style>
+.node:hover {
+  fill: blue;
+  cursor: pointer;
+}
+ellipse {
+  fill: white;
+  stroke: black;
+}
+</style>
+</head>
+<body>
+<h1>work flower</h1>
+<div id="workflow"></div>
+<button id="runbutton">run pipeline!</button>
+<button id="shellbutton">drop to shell</button>
+<script>
+function wf_api(q, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "/wf?q="+q, true);
+    xhr.onload = function() {
+        cb(this.response);
+    }
+    xhr.send();
+}
+ 
+function wire_svg(s) {
+    var nodes = s.querySelectorAll("g.node");
+    for(var i=0; i<nodes.length; i++) {
+        var node = nodes[i];
+        var text = node.querySelector("text");
+
+        var name = text.textContent.split(" ")[0];
+        console.log(name);
+        (function(node, name) {
+            node.onclick = function() {
+                console.log("clicked on", name);
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", "/wf/"+name, true);
+                xhr.onload = function() {
+                    console.log("node info", this.response);
+                }
+                xhr.send();
+            };
+        })(node, name);
+    }
+}
+
+// Display SVG of workflow
+wf_api("svg", function(res) {
+    var sdiv = document.getElementById("workflow");
+    sdiv.innerHTML = res;
+    wire_svg(sdiv.children[0]);
+});
+
+var runbutton = document.getElementById("runbutton");
+runbutton.onclick = function() {
+    wf_api("run", function(res) { 
+        console.log("run:", res);
+    });
+}
+var shellbutton = document.getElementById("shellbutton");
+shellbutton.onclick = function() {
+    wf_api("shell", function(res) { 
+        console.log("shell:", res);
+    });
+}
+
+</script>
+</body>
+</html>
