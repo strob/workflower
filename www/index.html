@@ -26,6 +26,8 @@ function wf_api(q, cb) {
     }
     xhr.send();
 }
+
+var $nodes = {};
  
 function wire_svg(s) {
     var nodes = s.querySelectorAll("g.node");
@@ -34,6 +36,7 @@ function wire_svg(s) {
         var text = node.querySelector("text");
 
         var name = text.textContent.split(" ")[0];
+        $nodes[name] = node;
         console.log(name);
         (function(node, name) {
             node.onclick = function() {
@@ -59,6 +62,12 @@ wf_api("svg", function(res) {
 var runbutton = document.getElementById("runbutton");
 runbutton.onclick = function() {
     wf_api("run", function(res) { 
+        var res = JSON.parse(res);
+        if(res.type === "error") {
+            console.log("ERROR!", res);
+            $nodes[res.node].querySelector("ellipse").style.fill = "red";
+            $nodes[res.node].setAttribute("title", res.error);
+        }
         console.log("run:", res);
     });
 }

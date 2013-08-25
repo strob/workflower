@@ -2,6 +2,7 @@
 import json
 import networkx as nx
 import subprocess
+import traceback
 from twisted.web.static import File
 from twisted.web.resource import Resource
 from twisted.web.server import Site
@@ -12,15 +13,6 @@ def show_flow(wf):
     for edge in g.edges():
         print edge, g.get_edge_data(*edge)["connect"]
 
-class MRun:
-    def run(self, graph, *a, **kw):
-        print "my_runner"
-        print "graph", graph, graph.nodes()
-        for node in nx.topological_sort(graph):
-            print "running!", node
-            res = node.run()
-            print "result", res, res.outputs
-
 def de_trait(t):
     out = {}
     for k,v in t.items():
@@ -28,21 +20,55 @@ def de_trait(t):
     return out
 
 class NodeAPI(Resource):
-    def __init__(self, node):
+    def __init__(self, node, nodeinfo):
         self.node = node
+        self.nodeinfo = nodeinfo
         Resource.__init__(self)
     def render_GET(self, request):
         request.headers["Content-Type"] = "application/json"
-        return json.dumps({"inputs": de_trait(self.node.inputs),
-                           "outputs": de_trait(self.node.outputs)})
+        return json.dumps([X.get_obj() for X in self.nodeinfo])
+
+class ExecutionInfo:
+    def set_inputs(self, inputs):
+        self.inputs = inputs
+    def set_outputs(self, outputs):
+        self.outputs = outputs
+    def get_obj(self):
+        out = {}
+        if hasattr(self, "inputs"):
+            out["inputs"] = de_trait(self.inputs)
+        if hasattr(self, "outputs"):
+            out["outputs"] = de_trait(self.outputs)
+        return out
 
 class WorkflowAPI(Resource):
     def __init__(self, wf):
         self.wf = wf
+        self.nodeinfo = {}      # node_name -> [ExecutionInfo]
         Resource.__init__(self)
 
     def getChild(self, name, req):
-        return NodeAPI(self.wf.get_node(name))
+        return NodeAPI(self.wf.get_node(name), self.nodeinfo.get(name, []))
+
+    def run(self, graph, *a, **kw):
+        "Custom workflow plugin to track execution"
+        print "graph", graph, graph.nodes()
+        for node in nx.topological_sort(graph):
+            print "running!", node, node.name
+            ei = ExecutionInfo()
+            ei.set_inputs(node.inputs)
+            self.nodeinfo.setdefault(node.name, []).append(ei)
+
+            try:
+                res = node.run()
+            except Exception, err:
+                print err
+                self.runout = {"type": "error",
+                           "node": str(node.name),
+                           "error": traceback.format_exc()}
+                return
+            ei.set_outputs(res.outputs)
+            self.runout = {"type": "success"}
 
     def render_GET(self, request):
         query = request.args.get("q", [])
@@ -62,8 +88,9 @@ class WorkflowAPI(Resource):
                         colored=True)))
                 return stdout
             elif query[0] == "run":
-                self.res = self.wf.run()
-                return "OK!"
+                request.headers["Content-Type"] = "application/json"
+                self.wf.run(plugin=self)
+                return json.dumps(self.runout)
             elif query[0] == "shell":
                 import pdb; pdb.set_trace()
                 return "hope you fixed it!"
