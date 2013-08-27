@@ -1,6 +1,7 @@
 # ui-based execution of a workflow
 import json
 import networkx as nx
+import os
 import subprocess
 import traceback
 from twisted.web.static import File
@@ -99,7 +100,8 @@ class WorkflowAPI(Resource):
 
 def run(wf):
     # web-control of a workflow
-    root = File("www")
+    datapath = os.path.join(os.path.dirname(__file__), "data")
+    root = File(datapath)
     workflow_api = WorkflowAPI(wf)
     root.putChild("wf", workflow_api)
     site = Site(root)
