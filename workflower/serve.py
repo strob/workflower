@@ -9,6 +9,22 @@ from twisted.web.resource import Resource
 from twisted.web.server import Site
 from twisted.internet import reactor
 
+def wf2json(wf):
+    nodes = {}                  # name -> subgraph or True
+    edges = []
+
+    for node in wf._graph.nodes():
+        if hasattr(node, "_graph"):
+            nodes[node.name] = wf2json(node)
+        else:
+            nodes[node.name] = False
+
+    for edge in wf._graph.edges():
+        edges.append((edge[0].name, edge[1].name))
+
+    return {"nodes": nodes,
+            "edges": edges}
+
 def show_flow(wf):
     g = wf._graph
     for edge in g.edges():
@@ -74,7 +90,11 @@ class WorkflowAPI(Resource):
     def render_GET(self, request):
         query = request.args.get("q", [])
         if len(query) > 0:
-            if query[0] == 'dot':
+            if query[0] == 'json':
+                request.headers["Content-Type"] = "application/json"
+                return json.dumps(wf2json(self.wf))
+
+            elif query[0] == 'dot':
                 request.headers["Content-Type"] = "text/plain"
                 return self.wf._get_dot()
             elif query[0] == 'svg':

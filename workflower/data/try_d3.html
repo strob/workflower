@@ -1,0 +1,144 @@
+<html>
+  <head>
+<title>our own pipeline graphing</title>
+<script src="my_d3.js" charset="utf-8"></script>
+<style>
+rect {
+  fill: none;
+  pointer-events: all;
+}
+
+.node {
+  fill: rgb(120,120,120);
+}
+
+.supernode {
+  fill: rgb(0,0,255);
+}
+
+.cursor {
+  fill: none;
+  stroke: brown;
+  pointer-events: none;
+}
+
+.link {
+  stroke: #999;
+  stroke-width: 2px;
+  fill: none;
+}
+</style>
+</head>
+<body>
+<h1>our own pipeline graphing</h1>
+<script>
+
+var w = 960, h = 500;
+var labelDistance = 0;
+var svg = d3.select("body")
+    .append("svg:svg")
+    .attr("width", w)
+    .attr("height", h);
+
+// define arrow markers for graph links
+svg.append('svg:defs').append('svg:marker')
+    .attr('id', 'end-arrow')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 6)
+    .attr('markerWidth', 3)
+    .attr('markerHeight', 3)
+    .attr('orient', 'auto')
+    .append('svg:path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', '#000');
+
+var res;
+var force = d3.layout.force()
+    .size([w, h])
+    .nodes([])
+    .linkDistance(200)
+    .charge(-300)
+    .on("tick", tick);
+
+var nodes = force.nodes(),
+    links = force.links(),
+    node = svg.selectAll(".node"),
+    link = svg.selectAll(".link");
+
+// Get our graph, and display it in d3
+var xhr = new XMLHttpRequest();
+xhr.open("GET", "wf?q=json", true);
+xhr.onload = function() {
+    res = JSON.parse(this.responseText);
+    
+    var nodenames = Object.keys(res.nodes);
+    nodenames.forEach(function(n, idx) {
+        nodes.push({
+            index: idx,
+            name: n,
+            has_subgraph: (res.nodes[n] !== false)
+        });
+    });
+
+    res.edges.forEach(function(e) {
+        links.push({
+            source: nodenames.indexOf(e[0]), 
+            target: nodenames.indexOf(e[1]),
+        });
+    });
+
+    restart();
+}
+xhr.send();
+
+function drawnode(entry) {
+    group = entry.insert("g");
+    group.append("circle")
+        .attr("class", function(d) { return d.has_subgraph ? "supernode" : "node"; })
+        .attr("r", 5)
+        .call(force.drag);
+    group.append("text")
+        .text(function(d) { 
+            return d.name; });
+}
+
+
+function restart() {
+    link = link.data(links);
+
+    link.enter().insert("path", ".node")
+        .attr("class", "link")
+        .style('marker-end', 'url(#end-arrow)');
+
+    node = node.data(nodes);
+
+    drawnode(node.enter());
+    force.start();
+}
+
+function tick() {
+    link.attr("d", function(d) {
+        //http://bl.ocks.org/rkirsling/5001347
+        var deltaX = d.target.x - d.source.x,
+        deltaY = d.target.y - d.source.y,
+        dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+        normX = deltaX / dist,
+        normY = deltaY / dist,
+        sourcePadding = d.left ? 17 : 12,
+        targetPadding = d.right ? 17 : 12,
+        sourceX = d.source.x + (sourcePadding * normX),
+        sourceY = d.source.y + (sourcePadding * normY),
+        targetX = d.target.x - (targetPadding * normX),
+        targetY = d.target.y - (targetPadding * normY);
+        return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
+    });
+
+  node.attr("transform", function(d) { return "translate("+d.x+","+d.y+")"; })
+
+  // node.attr("cx", function(d) { return d.x; })
+  //     .attr("cy", function(d) { return d.y; });
+}
+
+</script>
+</body>
+</html>
