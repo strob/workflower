@@ -106,7 +106,7 @@ class WorkflowAPI(Resource):
                 stdout, stderr = p.communicate(
                     input="digraph %s{\n%s}" % (self.wf.name, self.wf._get_dot(
                         simple_form=True,
-                        colored=True)))
+                        colored=False)))
                 return stdout
             elif query[0] == "run":
                 request.headers["Content-Type"] = "application/json"
