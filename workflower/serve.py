@@ -118,7 +118,7 @@ class WorkflowAPI(Resource):
                 
         return "The workflow is called: %s" % (self.wf.name)
 
-def run(wf):
+def run(wf, port=9090):
     # web-control of a workflow
     datapath = os.path.join(os.path.dirname(__file__), "data")
     root = File(datapath)
@@ -126,8 +126,8 @@ def run(wf):
     root.putChild("wf", workflow_api)
     site = Site(root)
 
-    reactor.listenTCP(9090, site, interface="0.0.0.0")
-    print 'listening on port 9090'
+    reactor.listenTCP(port, site, interface="0.0.0.0")
+    print 'listening on port '+str(port)
     reactor.run()
     
 
